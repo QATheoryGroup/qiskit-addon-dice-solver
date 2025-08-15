@@ -306,9 +306,9 @@ def _call_dice(dice_dir: Path, mpirun_options: Sequence[str] | str | None) -> No
     if mpirun_options:
         if isinstance(mpirun_options, str):
             mpirun_options = mpirun_options.split()
-        dice_call = ["mpirun"] + list(mpirun_options) + [dice_path]
+        dice_call = ["srun"] + list(mpirun_options) + [dice_path]
     else:
-        dice_call = ["mpirun", dice_path]
+        dice_call = ["srun", dice_path]
 
     with open(dice_log_path, "w") as logfile:
         process = subprocess.run(
