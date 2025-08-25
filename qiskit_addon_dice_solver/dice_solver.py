@@ -22,7 +22,7 @@ import subprocess
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
-
+from datetime import datetime
 import numpy as np
 from pyscf import tools
 
@@ -244,6 +244,7 @@ def solve_hci(
     dice_dir = Path(tempfile.mkdtemp(prefix="dice_cli_files_", dir=temp_dir))
 
     # Write the integrals out as an FCI dump for Dice command line app
+    print(" >> solve_hci(): Writing FCI integrals for DICE: ", datetime.now())
     active_space_path = dice_dir / "fcidump.txt"
     tools.fcidump.from_integrals(active_space_path, hcore, eri, norb, nelec)
 
@@ -261,12 +262,15 @@ def solve_hci(
     )
 
     # Navigate to dice dir and call Dice
+    print(" >> solve_hci(): Calling DICE: ", datetime.now())
     _call_dice(dice_dir, mpirun_options)
 
     # Read and convert outputs
+    print(" >> solve_hci(): Reading output from  DICE: ", datetime.now())
     e_dice, sci_state, avg_occupancies = _read_dice_outputs(dice_dir, norb, nelec)
 
     # Clean up the temp directory of intermediate files, if desired
+    print(" >> solve_hci(): Returning average occupanies: ", datetime.now())
     if clean_temp_dir:
         shutil.rmtree(dice_dir)
 
@@ -384,6 +388,7 @@ def _read_dice_outputs(
 ) -> tuple[float, SCIState, np.ndarray]:
     """Calculate the estimated ground state energy and average orbitals occupancies from Dice outputs."""
     # Read in the avg orbital occupancies
+    print(" >> >> _read_dice_outputs(): avg orbital occupanies", datetime.now())
     spin1_rdm_dice = np.loadtxt(os.path.join(dice_dir, "spin1RDM.0.0.txt"), skiprows=1)
     avg_occupancies = np.zeros(2 * norb)
     for i in range(spin1_rdm_dice.shape[0]):
@@ -393,16 +398,21 @@ def _read_dice_outputs(
             avg_occupancies[int(orbital_id // 2 + parity * norb)] = spin1_rdm_dice[i, 2]
 
     # Read in the estimated ground state energy
+    print(" >> >> _read_dice_outputs(): estimated ground state energy", datetime.now())
     file_energy = open(os.path.join(dice_dir, "shci.e"), "rb")
     bytestring_energy = file_energy.read(8)
     energy_dice = struct.unpack("d", bytestring_energy)[0]
 
     # Construct the SCI wavefunction coefficients from Dice output dets.bin
+    print(" >> >> _read_dice_outputs(): wfn magnitudes", datetime.now())
     occs, amps = _read_wave_function_magnitudes(os.path.join(dice_dir, "dets.bin"))
+    print(" >> >> _read_dice_outputs(): ci strs from occupancies", datetime.now())
     ci_strs = _ci_strs_from_occupancies(occs)
+    print(" >> >> _read_dice_outputs(): construct ci vec", datetime.now())
     sci_coefficients, ci_strs_a, ci_strs_b = _construct_ci_vec_from_amplitudes(
         amps, ci_strs
     )
+    print(" >> >> _read_dice_outputs(): make SCIState object", datetime.now())
     sci_state = SCIState(
         amplitudes=sci_coefficients,
         ci_strs_a=ci_strs_a,
@@ -410,6 +420,7 @@ def _read_dice_outputs(
         norb=norb,
         nelec=nelec,
     )
+    print(" >> >> _read_dice_outputs(): return from _read_dice_outputs()", datetime.now())
 
     return energy_dice, sci_state, avg_occupancies
 
